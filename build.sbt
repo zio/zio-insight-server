@@ -33,7 +33,7 @@ addCommandAlias("check", "all scalafmtSbtCheck scalafmtCheck test:scalafmtCheck"
 lazy val commonSettings = Seq()
 
 lazy val root = project
-  .in(file("."))
+  .in(file("core"))
   .settings(
     run / fork             := true,
     Test / run / javaOptions += "-Djava.net.preferIPv4Stack=true",

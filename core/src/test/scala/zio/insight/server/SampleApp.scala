@@ -6,12 +6,12 @@ import zio.metrics.connectors.insight.ClientMessage
 import zio.metrics.connectors.insight.ClientMessage.encAvailableMetrics
 import zio.metrics.connectors.insight.InsightPublisher
 import zio.metrics.jvm.DefaultJvmMetrics
-
 import zhttp.html._
 import zhttp.http._
 import zhttp.service.EventLoopGroup
 import zhttp.service.Server
 import zhttp.service.server.ServerChannelFactory
+import zio.metrics.connectors.MetricsConfig
 
 object SampleApp extends ZIOAppDefault with InstrumentedSample {
 
