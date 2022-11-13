@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: ["zio/series2.x", "master"]
+  release:
+    types:
+      - published
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false
+      matrix:
+        java: ["adopt@1.8", "adopt@1.11"]
+        scala: ["2.12.17", "2.13.10", "3.2.1"]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: olafurpg/setup-scala@v13
+        with:
+          java-version: ${{ matrix.java }}
+      - name: Cache scala dependencies
+        uses: coursier/cache-action@v6
+      - name: Lint code
+        run: sbt check
+      - name: compile all
+        run: sbt ++${{ matrix.scala }}! compile
+      - name: Run tests
+        run: sbt ++${{ matrix.scala }}! test
+
+  publish:
+    runs-on: ubuntu-20.04
+    needs: [build]
+    if: github.event_name != 'pull_request'
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: olafurpg/setup-scala@v13
+      - run: sbt ci-release
+        env:
+          PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
+          PGP_SECRET: ${{ secrets.PGP_SECRET }}
+          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}

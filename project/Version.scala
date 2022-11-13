@@ -7,5 +7,5 @@ object Version {
   val zio                  = "2.0.2"
   val zioJson              = "0.3.0-RC11"
   val zioHttp              = "2.0.0-RC11"
-  val zioMetricsConnectors = "2.0.1"
+  val zioMetricsConnectors = "2.0.2"
 }

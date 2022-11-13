@@ -1,17 +1,16 @@
-package zio.insight.server
+package sample
 
 import zio._
 import zio.json._
-import zio.metrics.connectors.insight.ClientMessage
+import zio.metrics.connectors.{insight, MetricsConfig}
+import zio.metrics.connectors.insight.{ClientMessage, InsightPublisher}
 import zio.metrics.connectors.insight.ClientMessage.encAvailableMetrics
-import zio.metrics.connectors.insight.InsightPublisher
 import zio.metrics.jvm.DefaultJvmMetrics
-import zhttp.html._
+
+import zhttp.html.Html
 import zhttp.http._
-import zhttp.service.EventLoopGroup
-import zhttp.service.Server
+import zhttp.service.{EventLoopGroup, Server}
 import zhttp.service.server.ServerChannelFactory
-import zio.metrics.connectors.MetricsConfig
 
 object SampleApp extends ZIOAppDefault with InstrumentedSample {
 
@@ -78,7 +77,7 @@ object SampleApp extends ZIOAppDefault with InstrumentedSample {
       // This is the general config for all backends
       metricsConfig,
 
-      // The inisght reporting layer
+      // The insight reporting layer
       insight.insightLayer,
 
       // Enable the ZIO internal metrics and the default JVM metricsConfig

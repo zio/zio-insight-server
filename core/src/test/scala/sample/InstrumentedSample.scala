@@ -1,7 +1,7 @@
-package zio.insight.server
+package sample
 
-import zio._
-import zio.metrics._
+import zio.{Chunk, Random, Schedule, ZIO, durationInt}
+import zio.metrics.{Metric, MetricKeyType}
 
 trait InstrumentedSample {
 
