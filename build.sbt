@@ -37,7 +37,7 @@ lazy val root = project
   .settings(
     run / fork             := true,
     Test / run / javaOptions += "-Djava.net.preferIPv4Stack=true",
-    Test / run / mainClass := Some("zio.insight.server.SampleApp"),
+    Test / run / mainClass := Some("sample.SampleApp"),
     cancelable             := true,
     stdSettings("zio.insight.server"),
     libraryDependencies ++= Seq(
