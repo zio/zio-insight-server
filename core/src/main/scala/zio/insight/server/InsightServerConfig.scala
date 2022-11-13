@@ -1,0 +1,6 @@
+package zio.insight.server
+
+import java.time.Duration
+
+final case class InsightServerConfig(
+  interval: Duration)
