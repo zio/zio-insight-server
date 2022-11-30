@@ -4,8 +4,8 @@ object Version {
   val Scala213   = "2.13.10"
   val ScalaDotty = "3.2.1"
 
-  val zio                  = "2.0.3"
+  val zio                  = "2.0.4"
   val zioJson              = "0.3.0"
   val zioHttp              = "2.0.0-RC11"
-  val zioMetricsConnectors = "2.0.2"
+  val zioMetricsConnectors = "2.0.3"
 }
