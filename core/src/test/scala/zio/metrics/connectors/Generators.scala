@@ -1,8 +1,8 @@
 package zio.metrics.connectors
 
 import zio._
-import zio.metrics.MetricPair.Untyped
 import zio.metrics._
+import zio.metrics.MetricPair.Untyped
 import zio.test._
 
 trait Generators {
