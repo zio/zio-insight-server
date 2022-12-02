@@ -2,14 +2,16 @@ package sample
 
 import zio._
 import zio.json._
-import zio.metrics.connectors.{insight, MetricsConfig}
-import zio.metrics.connectors.insight.{ClientMessage, InsightPublisher}
+import zio.metrics.connectors.MetricsConfig
+import zio.metrics.connectors.insight.ClientMessage
 import zio.metrics.connectors.insight.ClientMessage.encAvailableMetrics
+import zio.metrics.connectors.insight.InsightPublisher
 import zio.metrics.jvm.DefaultJvmMetrics
 
-import zhttp.html.Html
+import zhttp.html._
 import zhttp.http._
-import zhttp.service.{EventLoopGroup, Server}
+import zhttp.service.EventLoopGroup
+import zhttp.service.Server
 import zhttp.service.server.ServerChannelFactory
 
 object SampleApp extends ZIOAppDefault with InstrumentedSample {
@@ -21,25 +23,25 @@ object SampleApp extends ZIOAppDefault with InstrumentedSample {
 
   private lazy val indexPage =
     """<html>
-      |<title>ZIO Insight Server SampleApp</title>
+      |<title>Simple Server</title>
       |<body>
-      |<p><a href="/metrics/keys">Metrics: GET all keys</a></p>
-      |<p><a href="/metrics/metrics">Metrics: POST keys to get the metrics</a></p>
+      |<p><a href="/metrics">Metrics</a></p>
+      |<p><a href="/insight/keys">Insight Metrics: Get all keys</a></p>
       |</body
       |</html>""".stripMargin
 
   private lazy val static =
     Http.collect[Request] { case Method.GET -> !! => Response.html(Html.fromString(indexPage)) }
 
-  private lazy val metricsAllKeysRouter =
-    Http.collectZIO[Request] { case Method.GET -> !! / "metrics" / "keys" =>
-      ZIO.serviceWithZIO[InsightPublisher](_.getAllKeys.map(_.toJson).map(Response.json))
+  private lazy val insightAllKeysRouter =
+    Http.collectZIO[Request] { case Method.GET -> !! / "insight" / "keys" =>
+      ZIO.serviceWithZIO[InsightPublisher](_.getAllKeys.map(_.toJson).map(data => noCors(Response.json(data))))
     }
 
   // POST: /insight/metrics body Seq[MetricKey] => Seq[MetricsNotification]
   // TODO: Should we add an additional module with a layer implementation for zio-http?
   // should be added (at some point) to zio-http ...
-  private lazy val metricsGetMetricsRouter =
+  private lazy val insightGetMetricsRouter =
     Http.collectZIO[Request] { case req @ Method.POST -> !! / "insight" / "metrics" =>
       for {
         request  <- req.body.asString.map(_.fromJson[ClientMessage.MetricsSelection])
@@ -54,14 +56,16 @@ object SampleApp extends ZIOAppDefault with InstrumentedSample {
                         ZIO
                           .serviceWithZIO[InsightPublisher](_.getMetrics(r.selection))
                           .map(_.toJson)
-                          .map(Response.json)
+                          .map(data => noCors(Response.json(data)))
                     }
       } yield response
-
     }
 
+  private def noCors(r: Response): Response =
+    r.updateHeaders(_.combine(Headers(("Access-Control-Allow-Origin", "*"))))
+
   private val server =
-    Server.port(bindPort) ++ Server.app(static ++ metricsAllKeysRouter ++ metricsGetMetricsRouter)
+    Server.port(bindPort) ++ Server.app(static ++ insightAllKeysRouter ++ insightGetMetricsRouter)
 
   private lazy val runHttp = (server.start *> ZIO.never).forkDaemon
 
@@ -77,8 +81,8 @@ object SampleApp extends ZIOAppDefault with InstrumentedSample {
       // This is the general config for all backends
       metricsConfig,
 
-      // The insight reporting layer
-      insight.insightLayer,
+      // The inisght reporting layer
+      zio.metrics.connectors.insight.insightLayer,
 
       // Enable the ZIO internal metrics and the default JVM metricsConfig
       // Do NOT forget the .unit for the JVM metrics layer

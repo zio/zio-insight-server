@@ -32,14 +32,14 @@ addCommandAlias("check", "all scalafmtSbtCheck scalafmtCheck test:scalafmtCheck"
 
 lazy val commonSettings = Seq()
 
-lazy val root = project
+lazy val core = project
   .in(file("core"))
   .settings(
-    run / fork             := true,
+    Test / run / fork      := true,
     Test / run / javaOptions += "-Djava.net.preferIPv4Stack=true",
     Test / run / mainClass := Some("sample.SampleApp"),
     cancelable             := true,
-    stdSettings("zio.insight.server"),
+    stdSettings("zio.insight.server.core"),
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio"                    % Version.zio,
       "dev.zio" %% "zio-json"               % Version.zioJson,
@@ -64,9 +64,13 @@ lazy val docs = project
       "dev.zio" %% "zio"   % Version.zio,
       "io.d11"  %% "zhttp" % Version.zioHttp,
     ),
-    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(root),
+    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(core),
     ScalaUnidoc / unidoc / target              := (LocalRootProject / baseDirectory).value / "website" / "static" / "api",
     cleanFiles += (ScalaUnidoc / unidoc / target).value,
   )
-  .dependsOn(root)
+  .dependsOn(core)
   .enablePlugins(MdocPlugin, ScalaUnidocPlugin)
+
+lazy val root = project
+  .in(file("."))
+  .aggregate(core, docs)
