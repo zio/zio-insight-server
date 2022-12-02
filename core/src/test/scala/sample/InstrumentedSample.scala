@@ -1,6 +1,6 @@
 package sample
 
-import zio.{Chunk, Random, Schedule, ZIO, durationInt}
+import zio.{durationInt, Chunk, Random, Schedule, ZIO}
 import zio.metrics.{Metric, MetricKeyType}
 
 trait InstrumentedSample {
