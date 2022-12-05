@@ -7,12 +7,12 @@ package object insight {
 
   private lazy val publisherLayer: ULayer[InsightPublisher] = ZLayer.fromZIO(InsightPublisher.make)
 
-  lazy val insightLayer: ZLayer[MetricsConfig, Nothing, InsightPublisher] =
+  lazy val metricsLayer: ZLayer[MetricsConfig, Nothing, InsightPublisher] =
     (publisherLayer ++ ZLayer.service[MetricsConfig]) >+> ZLayer.fromZIO(
-      ZIO.service[InsightPublisher].flatMap(clt => MetricsClient.make(insightHandler(clt))).unit,
+      ZIO.service[InsightPublisher].flatMap(clt => MetricsClient.make(metricsHandler(clt))).unit,
     )
 
-  private def insightHandler(clt: InsightPublisher): Iterable[MetricEvent] => UIO[Unit] =
+  private def metricsHandler(clt: InsightPublisher): Iterable[MetricEvent] => UIO[Unit] =
     events =>
       ZIO
         .foreach(events)(clt.update)
