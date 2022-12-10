@@ -73,4 +73,5 @@ lazy val docs = project
 
 lazy val root = project
   .in(file("."))
+  .settings(name := "zio-insight-server")
   .aggregate(core, docs)
