@@ -1,7 +1,6 @@
 package zio.insight.server
 
 import zio._
-import zio.insight.server.InsightServer.{bindPort, static}
 import zio.json._
 import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.insight.{ClientMessage, InsightPublisher}
@@ -15,10 +14,7 @@ import zhttp.service.server.ServerChannelFactory
 
 object InsightServer {
 
-  private val bindPort = 8080
   private val nThreads = 5
-
-  private val metricsConfig = ZLayer.succeed(MetricsConfig(5.seconds))
 
   private lazy val indexPage =
     """<html>
