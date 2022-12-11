@@ -2,19 +2,14 @@ package zio.insight.server
 
 import zio._
 import zio.json._
-import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.insight.{ClientMessage, InsightPublisher}
 import zio.metrics.connectors.insight.ClientMessage.encAvailableMetrics
-import zio.metrics.jvm.DefaultJvmMetrics
 
 import zhttp.html._
 import zhttp.http._
-import zhttp.service.{EventLoopGroup, Server}
-import zhttp.service.server.ServerChannelFactory
+import zhttp.service.Server
 
 object InsightServer {
-
-  private val nThreads = 5
 
   private lazy val indexPage =
     """<html>
@@ -61,31 +56,12 @@ object InsightServer {
   private def server(config: InsightServerConfig): Server[InsightPublisher, Throwable] =
     Server.port(config.port) ++ Server.app(static ++ insightAllKeysRouter ++ insightGetMetricsRouter)
 
-  private lazy val runHttp =
-    ZIO.service[InsightServerConfig].flatMap(config => (server(config).start *> ZIO.never).forkDaemon)
+  private[server] def run() =
+    for {
+      cfg <- ZIO.service[InsightServerConfig]
+      svr <- server(cfg).start.forkDaemon
+      _   <- Console.printLine(s"Started Insight Server with config $cfg")
+      _   <- svr.join
+    } yield ()
 
-  def make(config: InsightServerConfig): ZIO[Any, Throwable, Unit] = (for {
-
-    f <- runHttp
-    _ <- f.join
-  } yield ())
-    .provide(
-      ServerChannelFactory.auto,
-      EventLoopGroup.auto(nThreads),
-
-      // Server config
-      ZLayer.succeed(config),
-
-      // Metrics config
-      ZLayer.succeed(MetricsConfig(config.interval)),
-
-      // The insight reporting layer
-      zio.metrics.connectors.insight.metricsLayer,
-
-      // Enable the ZIO internal metrics and the default JVM metricsConfig
-      // Do NOT forget the .unit for the JVM metrics layer
-      Runtime.enableRuntimeMetrics,
-      Runtime.enableFiberRoots,
-      DefaultJvmMetrics.live.unit,
-    )
 }
