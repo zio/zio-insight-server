@@ -1,12 +1,11 @@
 package sample
 
 import zio._
-import zio.insight.server.{insightServerLayer, InsightServerConfig}
+import zio.insight.server._
 import zio.metrics.{Metric, MetricKeyType}
+import zio.metrics.connectors.MetricsConfig
 
 object SampleApp extends ZIOAppDefault {
-
-  private val insightServerConfig = InsightServerConfig(8080, 5.seconds)
 
   // Create a gauge, it can be applied to effects yielding a Double
   val aspGauge1 = Metric.gauge("gauge1")
@@ -48,14 +47,20 @@ object SampleApp extends ZIOAppDefault {
   } yield ()
 
   private def program = for {
-    _ <- gaugeSomething.schedule(Schedule.spaced(200.millis)).forkDaemon
-    _ <- observeNumbers.schedule(Schedule.spaced(150.millis)).forkDaemon
-    _ <- observeKey.schedule(Schedule.spaced(300.millis)).forkDaemon
+    _ <- gaugeSomething.schedule(Schedule.spaced(200.millis).jittered).forkDaemon
+    _ <- observeNumbers.schedule(Schedule.spaced(150.millis).jittered).forkDaemon
+    _ <- observeKey.schedule(Schedule.spaced(300.millis).jittered).forkDaemon
   } yield ()
 
-  override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] =
-    program
-      .provide(
-        insightServerLayer(insightServerConfig),
-      )
+  override def run =
+    (for {
+      f <- ZIO.never.forkDaemon
+      _ <- program
+      _ <- Console.printLine("Started Insight Sample application ...")
+      _ <- f.join
+    } yield ()).provideSome[Scope](
+      ZLayer.succeed(MetricsConfig(5.seconds)),
+      ZLayer.succeed(InsightServerConfig(5, 8080)),
+      insightLayer,
+    )
 }
