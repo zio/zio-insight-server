@@ -47,20 +47,23 @@ object SampleApp extends ZIOAppDefault {
   } yield ()
 
   private def program = for {
-    _ <- gaugeSomething.schedule(Schedule.spaced(200.millis).jittered).forkDaemon
-    _ <- observeNumbers.schedule(Schedule.spaced(150.millis).jittered).forkDaemon
-    _ <- observeKey.schedule(Schedule.spaced(300.millis).jittered).forkDaemon
+    _ <- gaugeSomething.schedule(Schedule.spaced(200.millis).jittered).forkScoped
+    _ <- observeNumbers.schedule(Schedule.spaced(150.millis).jittered).forkScoped
+    _ <- observeKey.schedule(Schedule.spaced(300.millis).jittered).forkScoped
   } yield ()
 
   override def run =
     (for {
-      f <- ZIO.never.forkDaemon
+      f <- ZIO.never.forkScoped
       _ <- program
       _ <- Console.printLine("Started Insight Sample application ...")
       _ <- f.join
     } yield ()).provideSome[Scope](
+      // Update Metric State for the API endpoint every 5 seconds
       ZLayer.succeed(MetricsConfig(5.seconds)),
+      // Configure the number of threads for ZIO HTTP and the port
       ZLayer.succeed(InsightServerConfig(5, 8080)),
+      // Start ZIO HTTP with the embedded insight app
       insightLayer,
     )
 }

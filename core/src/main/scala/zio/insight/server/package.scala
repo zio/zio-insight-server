@@ -28,9 +28,9 @@ package object server {
                       )
     } yield ()
 
-  lazy val insightLayer = ZLayer.fromZIO(
+  lazy val insightLayer = ZLayer.scoped(
     for {
-      svr <- (insightServer() *> ZIO.never).forkDaemon
+      svr <- (insightServer() *> ZIO.never).forkScoped
     } yield (),
   )
 }

@@ -59,7 +59,7 @@ object InsightServer {
   private[server] def run() =
     for {
       cfg <- ZIO.service[InsightServerConfig]
-      svr <- server(cfg).start.forkDaemon
+      svr <- server(cfg).start.forkScoped
       _   <- Console.printLine(s"Started Insight Server with config $cfg")
       _   <- svr.join
     } yield ()
