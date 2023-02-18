@@ -45,7 +45,7 @@ lazy val core = project
       "dev.zio" %% "zio-json"               % Version.zioJson,
       "dev.zio" %% "zio-streams"            % Version.zio,
       "dev.zio" %% "zio-metrics-connectors" % Version.zioMetricsConnectors,
-      "io.d11"  %% "zhttp"                  % Version.zioHttp,
+      "dev.zio"  %% "zio-http"                  % Version.zioHttp,
       "dev.zio" %% "zio-test"               % Version.zio % Test,
       "dev.zio" %% "zio-test-sbt"           % Version.zio % Test,
     ),
@@ -62,7 +62,7 @@ lazy val docs = project
     scalacOptions -= "-Yno-imports",
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio"   % Version.zio,
-      "io.d11"  %% "zhttp" % Version.zioHttp,
+      "dev.zio"  %% "zio-http" % Version.zioHttp,
     ),
     ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(core),
     ScalaUnidoc / unidoc / target              := (LocalRootProject / baseDirectory).value / "website" / "static" / "api",
