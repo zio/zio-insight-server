@@ -3,14 +3,10 @@ package sample
 import zio._
 import zio.insight.server._
 import zio.metrics.{Metric, MetricKeyType}
+import zio.metrics.MetricLabel
 import zio.metrics.connectors.MetricsConfig
 
 object SampleApp extends ZIOAppDefault {
-
-  // Create a gauge, it can be applied to effects yielding a Double
-  val aspGauge1 = Metric.gauge("gauge1")
-
-  val aspGauge2 = Metric.gauge("gauge2")
 
   // Create a histogram with 12 buckets: 0..100 in steps of 10, Infinite
   // It also can be applied to effects yielding a Double
@@ -31,8 +27,11 @@ object SampleApp extends ZIOAppDefault {
   val aspCountAll = Metric.counter("countAll").contramap[Any](_ => 1L)
 
   private lazy val gaugeSomething = for {
-    _ <- Random.nextDoubleBetween(0.0d, 100.0d) @@ aspGauge1 @@ aspCountAll
-    _ <- Random.nextDoubleBetween(-50d, 50d) @@ aspGauge2 @@ aspCountAll
+    _ <- ZIO.foreachPar(0.to(9)) { idx =>
+           Random.nextDoubleBetween(0, 100d).flatMap { v =>
+             Metric.gauge("Gauge").tagged(MetricLabel("idx", s"$idx")).set(v) @@ aspCountAll
+           }
+         }
   } yield ()
 
   // Just record something into a histogram

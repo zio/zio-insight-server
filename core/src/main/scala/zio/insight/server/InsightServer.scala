@@ -5,9 +5,10 @@ import zio.json._
 import zio.metrics.connectors.insight.{ClientMessage, InsightPublisher}
 import zio.metrics.connectors.insight.ClientMessage.encAvailableMetrics
 
-import zhttp.html._
-import zhttp.http._
-import zhttp.service.Server
+import zio.http.html._
+import zio.http._
+import zio.http.model.{Method, Status, Headers}
+import zio.metrics.connectors.MetricsConfig
 
 object InsightServer {
 
@@ -53,15 +54,15 @@ object InsightServer {
   private def noCors(r: Response): Response =
     r.updateHeaders(_.combine(Headers(("Access-Control-Allow-Origin", "*"))))
 
-  private def server(config: InsightServerConfig): Server[InsightPublisher, Throwable] =
-    Server.port(config.port) ++ Server.app(static ++ insightAllKeysRouter ++ insightGetMetricsRouter)
-
   private[server] def run() =
-    for {
-      cfg <- ZIO.service[InsightServerConfig]
-      svr <- server(cfg).start.forkScoped
-      _   <- Console.printLine(s"Started Insight Server with config $cfg")
+    (for {
+      svr <- Server.serve(static ++ insightAllKeysRouter ++ insightGetMetricsRouter.mapError(_ => Response.status(Status.InternalServerError))).forkDaemon
+      _   <- Console.printLine(s"Started Insight Server ...")
       _   <- svr.join
-    } yield ()
+    } yield ()).provide(
+      Server.default,
+      ZLayer.succeed(MetricsConfig(5.seconds)),
+      zio.metrics.connectors.insight.metricsLayer
+    )
 
 }
