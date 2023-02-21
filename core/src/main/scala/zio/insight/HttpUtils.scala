@@ -1,6 +1,7 @@
 package zio.insight
 
-import zhttp.http._
+import zio.http._
+import zio.http.model._
 
 object HttpUtils {
 

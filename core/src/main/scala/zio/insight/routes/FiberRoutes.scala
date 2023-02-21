@@ -1,8 +1,8 @@
 package zio.insight.routes
 
 import zio._
-
-import zhttp.http._
+import zio.http._
+import zio.http.model._
 
 object FiberRoutes {
 

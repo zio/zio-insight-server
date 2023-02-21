@@ -1,11 +1,13 @@
 package sample
 
 import zio._
+import zio.http._
 import zio.insight.fiber.FiberInfo
 import zio.insight.server._
 import zio.metrics.{Metric, MetricKeyType}
 import zio.metrics.MetricLabel
 import zio.metrics.connectors.MetricsConfig
+import zio.metrics.connectors.insight
 import zio.metrics.jvm.DefaultJvmMetrics
 
 object InsightSupervisor {
@@ -79,16 +81,16 @@ object SampleApp extends ZIOAppDefault {
     (for {
       f <- ZIO.never.forkScoped
       _ <- program
+      _ <- Server.serve(InsightServer.routes)
       _ <- Console.printLine("Started Insight Sample application ...")
       _ <- f.join
     } yield ())
       .provideSome[Scope](
+        ZLayer.succeed(ServerConfig.default.port(8080)),
+        Server.live,
         // Update Metric State for the API endpoint every 5 seconds
         ZLayer.succeed(MetricsConfig(5.seconds)),
-        // Configure the number of threads for ZIO HTTP and the port
-        ZLayer.succeed(InsightServerConfig(5, 8080)),
-        // Start ZIO HTTP with the embedded insight app
-        insightLayer,
+        insight.metricsLayer,
         // Enable the ZIO internal metrics and the default JVM metricsConfig
         Runtime.enableRuntimeMetrics,
         Runtime.enableFiberRoots,
