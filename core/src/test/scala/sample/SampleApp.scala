@@ -3,11 +3,11 @@ package sample
 import zio._
 import zio.http._
 import zio.insight.fiber.FiberInfo
-import zio.insight.server._
-import zio.metrics.{Metric, MetricKeyType}
-import zio.metrics.MetricLabel
+import zio.insight.server.InsightServer
+import zio.metrics._
 import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.insight
+import zio.metrics.connectors.insight.InsightPublisher
 import zio.metrics.jvm.DefaultJvmMetrics
 
 object InsightSupervisor {
@@ -81,7 +81,7 @@ object SampleApp extends ZIOAppDefault {
     (for {
       f <- ZIO.never.forkScoped
       _ <- program
-      _ <- Server.serve(InsightServer.routes)
+      _ <- Server.serve[InsightPublisher](InsightServer.routes)
       _ <- Console.printLine("Started Insight Sample application ...")
       _ <- f.join
     } yield ())

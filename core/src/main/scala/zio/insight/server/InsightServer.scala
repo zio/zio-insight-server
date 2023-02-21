@@ -4,6 +4,7 @@ import zio.http._
 import zio.http.html._
 import zio.http.model._
 import zio.insight.routes._
+import zio.metrics.connectors.insight.InsightPublisher
 
 object InsightServer {
 
@@ -15,12 +16,20 @@ object InsightServer {
       |</body
       |</html>""".stripMargin
 
-  lazy val routes =
+  lazy val routes: Http[InsightPublisher, Nothing, Request, Response] =
     // static routes
-    Http.collect[Request] { case Method.GET -> !! => Response.html(Html.fromString(indexPage)) } ++
+    Http.collect[Request] { case Method.GET -> !! =>
+      Response.html(Html.fromString(indexPage))
+    } ++
       // Metric routes
-      Http.collectRoute[Request] { case _ -> !! / "insight" / "metrics" => MetricRoutes.routes } ++
+      Http.collectRoute[Request] {
+        case _ -> p if p.startsWith(MetricRoutes.context) =>
+          MetricRoutes.routes(p)
+      } ++
       // Fiber routes
-      Http.collectRoute[Request] { case _ -> !! / "insight" / "fibers" => FiberRoutes.routes }
+      Http.collectRoute[Request] {
+        case _ -> p if p.startsWith(FiberRoutes.context) =>
+          FiberRoutes.routes(p)
+      }
 
 }
