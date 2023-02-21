@@ -2,7 +2,9 @@ package zio.insight
 
 import zio._
 import zio.metrics.connectors.MetricsConfig
-import zio.metrics.jvm.DefaultJvmMetrics
+
+import zhttp.service.EventLoopGroup
+import zhttp.service.server.ServerChannelFactory
 
 package object server {
   private def insightServer(
@@ -13,11 +15,10 @@ package object server {
       svr        <- InsightServer
                       .run()
                       .provideSome(
-                        // Enable the ZIO internal metrics and the default JVM metricsConfig
-                        // Do NOT forget the .unit for the JVM metrics layer
-                        Runtime.enableRuntimeMetrics,
-                        Runtime.enableFiberRoots,
-                        DefaultJvmMetrics.live.unit,
+                        EventLoopGroup.auto(cfg.nThreads),
+                        ServerChannelFactory.auto,
+                        ZLayer.succeed(cfg),
+                        zio.metrics.connectors.insight.metricsLayer,
                       )
     } yield ()
 

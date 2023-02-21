@@ -1,10 +1,34 @@
 package sample
 
 import zio._
+import zio.insight.fiber.FiberInfo
 import zio.insight.server._
 import zio.metrics.{Metric, MetricKeyType}
 import zio.metrics.MetricLabel
 import zio.metrics.connectors.MetricsConfig
+import zio.metrics.jvm.DefaultJvmMetrics
+
+object InsightSupervisor {
+
+  val supervisor: Supervisor[Unit] = new Supervisor[Unit] {
+
+    override def value(implicit trace: Trace): UIO[Unit] = ZIO.unit
+
+    override def onStart[R, E, A](
+      environment: ZEnvironment[R],
+      effect: ZIO[R, E, A],
+      parent: Option[Fiber.Runtime[Any, Any]],
+      fiber: Fiber.Runtime[E, A],
+    )(implicit unsafe: Unsafe,
+    ): Unit = {
+      val info = FiberInfo.fromFiber(fiber)
+      println(s"Fiber started - $info")
+    }
+
+    override def onEnd[R, E, A](value: Exit[E, A], fiber: Fiber.Runtime[E, A])(implicit unsafe: Unsafe): Unit =
+      println(s"Fiber ended - ${fiber.id}")
+  }
+}
 
 object SampleApp extends ZIOAppDefault {
 
@@ -57,12 +81,18 @@ object SampleApp extends ZIOAppDefault {
       _ <- program
       _ <- Console.printLine("Started Insight Sample application ...")
       _ <- f.join
-    } yield ()).provideSome[Scope](
-      // Update Metric State for the API endpoint every 5 seconds
-      ZLayer.succeed(MetricsConfig(5.seconds)),
-      // Configure the number of threads for ZIO HTTP and the port
-      ZLayer.succeed(InsightServerConfig(5, 8080)),
-      // Start ZIO HTTP with the embedded insight app
-      insightLayer,
-    )
+    } yield ())
+      .provideSome[Scope](
+        // Update Metric State for the API endpoint every 5 seconds
+        ZLayer.succeed(MetricsConfig(5.seconds)),
+        // Configure the number of threads for ZIO HTTP and the port
+        ZLayer.succeed(InsightServerConfig(5, 8080)),
+        // Start ZIO HTTP with the embedded insight app
+        insightLayer,
+        // Enable the ZIO internal metrics and the default JVM metricsConfig
+        Runtime.enableRuntimeMetrics,
+        Runtime.enableFiberRoots,
+        DefaultJvmMetrics.live.unit,
+      )
+  // .supervised(InsightSupervisor.supervisor)
 }
