@@ -3,6 +3,7 @@ package zio.insight.server
 import zio.http._
 import zio.http.html._
 import zio.http.model._
+import zio.insight.fiber.FiberEndpoint
 import zio.insight.routes._
 import zio.metrics.connectors.insight.InsightPublisher
 
@@ -16,7 +17,7 @@ object InsightServer {
       |</body
       |</html>""".stripMargin
 
-  lazy val routes: Http[InsightPublisher, Nothing, Request, Response] =
+  lazy val routes: Http[InsightPublisher with FiberEndpoint, Nothing, Request, Response] =
     // static routes
     Http.collect[Request] { case Method.GET -> !! =>
       Response.html(Html.fromString(indexPage))

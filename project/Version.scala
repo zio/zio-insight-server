@@ -6,7 +6,7 @@ object Version {
 
   val caliban              = "2.0.2"
   val tapir                = "1.2.2"
-  val zio                  = "2.0.9"
+  val zio                  = "2.0.10"
   val zioHttp              = "0.0.4"
   val zioJson              = "0.4.2"
   val zioMetricsConnectors = "2.0.6"

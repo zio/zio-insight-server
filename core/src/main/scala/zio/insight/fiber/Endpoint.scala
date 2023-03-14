@@ -17,3 +17,24 @@ trait FiberEndpoint {
   def fiberTrace(id: FiberId): UIO[Option[String]]
 
 }
+
+abstract private[insight] class FiberEndpointImpl() extends FiberEndpoint {
+
+  def fiberInfos(): UIO[Chunk[FiberInfo]] = ZIO.succeed(Chunk.empty)
+
+  def fiberTrace(id: FiberId): UIO[Option[String]] = ZIO.none
+}
+
+object FiberEndpoint {
+
+  lazy val live: ZLayer[Any, Nothing, FiberEndpoint] = ZLayer.fromZIO(make())
+
+  private def make(): ZIO[Any, Nothing, FiberEndpoint] =
+    ZIO.succeed(new FiberEndpointImpl() {})
+
+  def fiberInfos() = ZIO.serviceWithZIO[FiberEndpoint](_.fiberInfos())
+
+  def fiberTrace(id: FiberId) =
+    ZIO.serviceWithZIO[FiberEndpoint](_.fiberTrace(id))
+
+}

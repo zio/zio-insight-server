@@ -2,7 +2,7 @@ package sample
 
 import zio._
 import zio.http._
-import zio.insight.fiber.FiberInfo
+import zio.insight.fiber._
 import zio.insight.server.InsightServer
 import zio.metrics._
 import zio.metrics.connectors.MetricsConfig
@@ -25,6 +25,21 @@ object InsightSupervisor {
     ): Unit = {
       val info = FiberInfo.fromFiber(fiber)
       println(s"Fiber started - $info")
+    }
+
+    override def onSuspend[E, A](fiber: Fiber.Runtime[E, A])(implicit unsafe: Unsafe): Unit = {
+      val info = FiberInfo.fromFiber(fiber)
+      println(s"Fiber suspended - $info")
+    }
+
+    override def onEffect[E, A](fiber: Fiber.Runtime[E, A], effect: ZIO[_, _, _])(implicit unsafe: Unsafe): Unit = {
+      val info = FiberInfo.fromFiber(fiber)
+      println(s"Fiber onEffect - $info")
+    }
+
+    override def onResume[E, A](fiber: Fiber.Runtime[E, A])(implicit unsafe: Unsafe): Unit = {
+      val info = FiberInfo.fromFiber(fiber)
+      println(s"Fiber resumed - $info")
     }
 
     override def onEnd[R, E, A](value: Exit[E, A], fiber: Fiber.Runtime[E, A])(implicit unsafe: Unsafe): Unit =
@@ -81,7 +96,7 @@ object SampleApp extends ZIOAppDefault {
     (for {
       f <- ZIO.never.forkScoped
       _ <- program
-      _ <- Server.serve[InsightPublisher](InsightServer.routes)
+      _ <- Server.serve[InsightPublisher with FiberEndpoint](InsightServer.routes)
       _ <- Console.printLine("Started Insight Sample application ...")
       _ <- f.join
     } yield ())
@@ -95,6 +110,7 @@ object SampleApp extends ZIOAppDefault {
         Runtime.enableRuntimeMetrics,
         Runtime.enableFiberRoots,
         DefaultJvmMetrics.live.unit,
+        FiberEndpoint.live,
       )
-  // .supervised(InsightSupervisor.supervisor)
+      .supervised(InsightSupervisor.supervisor)
 }
