@@ -10,43 +10,6 @@ import zio.metrics.connectors.insight
 import zio.metrics.connectors.insight.InsightPublisher
 import zio.metrics.jvm.DefaultJvmMetrics
 
-object InsightSupervisor {
-
-  val supervisor: Supervisor[Unit] = new Supervisor[Unit] {
-
-    override def value(implicit trace: Trace): UIO[Unit] = ZIO.unit
-
-    override def onStart[R, E, A](
-      environment: ZEnvironment[R],
-      effect: ZIO[R, E, A],
-      parent: Option[Fiber.Runtime[Any, Any]],
-      fiber: Fiber.Runtime[E, A],
-    )(implicit unsafe: Unsafe,
-    ): Unit = {
-      val info = FiberInfo.fromFiber(fiber)
-      println(s"Fiber started - $info")
-    }
-
-    override def onSuspend[E, A](fiber: Fiber.Runtime[E, A])(implicit unsafe: Unsafe): Unit = {
-      val info = FiberInfo.fromFiber(fiber)
-      println(s"Fiber suspended - $info")
-    }
-
-    override def onEffect[E, A](fiber: Fiber.Runtime[E, A], effect: ZIO[_, _, _])(implicit unsafe: Unsafe): Unit = {
-      val info = FiberInfo.fromFiber(fiber)
-      println(s"Fiber onEffect - $info")
-    }
-
-    override def onResume[E, A](fiber: Fiber.Runtime[E, A])(implicit unsafe: Unsafe): Unit = {
-      val info = FiberInfo.fromFiber(fiber)
-      println(s"Fiber resumed - $info")
-    }
-
-    override def onEnd[R, E, A](value: Exit[E, A], fiber: Fiber.Runtime[E, A])(implicit unsafe: Unsafe): Unit =
-      println(s"Fiber ended - ${fiber.id}")
-  }
-}
-
 object SampleApp extends ZIOAppDefault {
 
   // Create a histogram with 12 buckets: 0..100 in steps of 10, Infinite
@@ -81,6 +44,23 @@ object SampleApp extends ZIOAppDefault {
     _ <- Random.nextIntBetween(100, 500) @@ aspSummary @@ aspCountAll
   } yield ()
 
+  private lazy val doSomething = {
+    val task = for {
+      value <- ZIO.randomWith(_.nextIntBounded(5).map(_ + 2))
+      _     <- ZIO.sleep(value.seconds)
+      _     <- ZIO.fail(new Exception("I dont like 3s")).when(value == 3)
+    } yield value
+
+    def go: ZIO[Any, Nothing, Unit] = for {
+      f <- task.fork
+      v <- f.join.catchAll(_ => ZIO.succeed(0))
+      _ <- ZIO.logInfo(s"$v")
+      _ <- go
+    } yield ()
+
+    go
+  }
+
   // Observe Strings in order to capture unique values
   private lazy val observeKey = for {
     _ <- Random.nextIntBetween(10, 20).map(v => s"myKey-$v") @@ aspSet @@ aspCountAll
@@ -90,7 +70,10 @@ object SampleApp extends ZIOAppDefault {
     _ <- gaugeSomething.schedule(Schedule.spaced(200.millis).jittered).forkScoped
     _ <- observeNumbers.schedule(Schedule.spaced(150.millis).jittered).forkScoped
     _ <- observeKey.schedule(Schedule.spaced(300.millis).jittered).forkScoped
+    _ <- doSomething.forkScoped
   } yield ()
+
+  private lazy val fiberSupervisor = new FiberMonitor()
 
   override def run =
     (for {
@@ -111,6 +94,10 @@ object SampleApp extends ZIOAppDefault {
         Runtime.enableFiberRoots,
         DefaultJvmMetrics.live.unit,
         FiberEndpoint.live,
+        ZLayer.succeed(
+          fiberSupervisor,
+        ),                    // Required to give the HTTP endpoint access to the data collected by the supervisor
+        fiberSupervisor.layer,// maintain the supervisors data, i.e. remove stats for terminated fibers after a threshold time
       )
-      .supervised(InsightSupervisor.supervisor)
+      .supervised(fiberSupervisor)
 }

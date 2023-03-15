@@ -1,34 +1,28 @@
 package zio.insight.fiber
 
 import zio._
-import zio.json._
 
-final case class FiberInfo private (
-  id: FiberId,
-  parent: Option[FiberId],
-  children: Chunk[FiberId])
+sealed trait FiberStatus
 
-object FiberInfo {
+object FiberStatus {
 
-  implicit val locationEnc =
-    JsonEncoder.tuple3[String, String, Int].contramap[Trace] { l: Trace =>
-      Trace.unapply(l).getOrElse(("", "", 0))
-    }
+  final case class Running(trace: Trace)                extends FiberStatus
+  final case class Suspended(
+    blockingOn: Set[FiberId.Runtime],
+    currentLocation: Trace)
+      extends FiberStatus
+  final case class Succeeded(endedAt: Long)             extends FiberStatus
+  final case class Errored(endedAt: Long, hint: String) extends FiberStatus
 
-  implicit val locationDec =
-    JsonDecoder.tuple3[String, String, Int].map {
-      case ("", "", 0)       => Trace.empty
-      case (loc, file, line) => Trace(loc, file, line)
-    }
+  def fromZIO(s: Fiber.Status): FiberStatus = s match {
+    case Fiber.Status.Running(_, trace)               => Running(trace)
+    case Fiber.Status.Suspended(_, trace, blockingOn) => Suspended(blockingOn.toSet, trace)
+    case Fiber.Status.Done                            => Succeeded(java.lang.System.currentTimeMillis())
+  }
 
-  implicit val fiberIdCodec: JsonCodec[FiberId] = DeriveJsonCodec.gen[FiberId]
-
-  implicit val fiberIfoCodec = DeriveJsonCodec.gen[FiberInfo]
-
-  def fromFiber(fiber: Fiber.Runtime[_, _]): FiberInfo =
-    FiberInfo(
-      fiber.id,
-      None,
-      Chunk.empty,
-    )
 }
+
+final case class FiberInfo(
+  id: FiberId.Runtime,
+  parent: Option[FiberId.Runtime],
+  status: FiberStatus)

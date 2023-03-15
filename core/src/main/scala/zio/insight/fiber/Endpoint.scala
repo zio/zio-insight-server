@@ -18,19 +18,20 @@ trait FiberEndpoint {
 
 }
 
-abstract private[insight] class FiberEndpointImpl() extends FiberEndpoint {
+abstract private[insight] class FiberEndpointImpl(monitor: FiberMonitor) extends FiberEndpoint {
 
-  def fiberInfos(): UIO[Chunk[FiberInfo]] = ZIO.succeed(Chunk.empty)
+  def fiberInfos(): UIO[Chunk[FiberInfo]] =
+    ZIO.collectAllPar(monitor.allFibers())
 
   def fiberTrace(id: FiberId): UIO[Option[String]] = ZIO.none
 }
 
 object FiberEndpoint {
 
-  lazy val live: ZLayer[Any, Nothing, FiberEndpoint] = ZLayer.fromZIO(make())
-
-  private def make(): ZIO[Any, Nothing, FiberEndpoint] =
-    ZIO.succeed(new FiberEndpointImpl() {})
+  lazy val live: ZLayer[FiberMonitor, Nothing, FiberEndpoint] =
+    ZLayer.fromZIO(
+      ZIO.service[FiberMonitor].map(new FiberEndpointImpl(_) {}),
+    )
 
   def fiberInfos() = ZIO.serviceWithZIO[FiberEndpoint](_.fiberInfos())
 
