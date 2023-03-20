@@ -25,4 +25,5 @@ object FiberStatus {
 final case class FiberInfo(
   id: FiberId.Runtime,
   parent: Option[FiberId.Runtime],
-  status: FiberStatus)
+  status: FiberStatus,
+  children: Chunk[FiberId.Runtime])
