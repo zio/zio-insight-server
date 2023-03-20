@@ -17,7 +17,7 @@ object FiberRoutes {
       case Method.GET -> p if matchesPath(p, ~~ / "fibers") =>
         ZIO
           .serviceWithZIO[FiberEndpoint](_.fiberInfos())
-          .map(_.toJson)
+          .map(infos => infos.toJson)
           .map(data => HttpUtils.noCors(Response.json(data)))
     }
 

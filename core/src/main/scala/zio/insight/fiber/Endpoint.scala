@@ -21,7 +21,7 @@ trait FiberEndpoint {
 abstract private[insight] class FiberEndpointImpl(monitor: FiberMonitor) extends FiberEndpoint {
 
   def fiberInfos(): UIO[Chunk[FiberInfo]] =
-    ZIO.collectAllPar(monitor.allFibers())
+    ZIO.collectAll(monitor.allFibers())
 
   def fiberTrace(id: FiberId): UIO[Option[String]] = ZIO.none
 }
