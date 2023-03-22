@@ -29,16 +29,12 @@ class FiberMonitor() extends Supervisor[Unit] {
           case None    => entry.fiber.status.map(FiberStatus.fromZIO)
         }
 
-        val children = entry.fiber.children.map(_.map(_.id))
-
         val info = state
-          .zipPar(children)
-          .map { case (s, c) =>
+          .map { s =>
             FiberInfo(
               entry.fiber.id,
               entry.parent.map(_.id),
               s,
-              c,
             )
           }
 
