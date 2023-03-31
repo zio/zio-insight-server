@@ -45,20 +45,17 @@ object SampleApp extends ZIOAppDefault {
   } yield ()
 
   private lazy val doSomething = {
-    val task = for {
-      value <- ZIO.randomWith(_.nextIntBounded(5).map(_ + 2))
-      _     <- ZIO.sleep(value.seconds)
-      _     <- ZIO.fail(new Exception("I dont like 3s")).when(value == 3)
-    } yield value
+    val t = (for {
+      value <- ZIO.randomWith(_.nextIntBounded(5).map(_ + 1))
+      _     <- ZIO.sleep((value * 100).millis)
+      err   <- ZIO.randomWith(_.nextBoolean)
+      _     <- ZIO.fail(new Exception("I dont like this")).when(err)
+    } yield value).tapError(_ => ZIO.logInfo("Something went wrong"))
 
-    def go: ZIO[Any, Nothing, Unit] = for {
-      f <- task.fork
-      v <- f.join.catchAll(_ => ZIO.succeed(0))
-      _ <- ZIO.logInfo(s"$v")
-      _ <- go
-    } yield ()
-
-    go
+    for {
+      f <- t.forkScoped
+      r <- f.join
+    } yield r
   }
 
   // Observe Strings in order to capture unique values
@@ -70,7 +67,7 @@ object SampleApp extends ZIOAppDefault {
     _ <- gaugeSomething.schedule(Schedule.spaced(200.millis).jittered).forkScoped
     _ <- observeNumbers.schedule(Schedule.spaced(150.millis).jittered).forkScoped
     _ <- observeKey.schedule(Schedule.spaced(300.millis).jittered).forkScoped
-    _ <- doSomething.forkScoped
+    _ <- doSomething.catchAll(_ => ZIO.unit).schedule(Schedule.spaced(100.millis).jittered).forkScoped
   } yield ()
 
   private lazy val fiberSupervisor = new FiberMonitor()

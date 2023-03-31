@@ -14,7 +14,7 @@ import zio._
 trait FiberEndpoint {
 
   def fiberInfos(): UIO[Chunk[FiberInfo]]
-  def fiberTrace(id: FiberId): UIO[Option[String]]
+  def fiberInfo(id: Int): UIO[Option[FiberInfo]]
 
 }
 
@@ -23,7 +23,7 @@ abstract private[insight] class FiberEndpointImpl(monitor: FiberMonitor) extends
   def fiberInfos(): UIO[Chunk[FiberInfo]] =
     ZIO.collectAll(monitor.allFibers())
 
-  def fiberTrace(id: FiberId): UIO[Option[String]] = ZIO.none
+  def fiberInfo(id: Int): UIO[Option[FiberInfo]] = monitor.fiberTrace(id)
 }
 
 object FiberEndpoint {
@@ -35,7 +35,7 @@ object FiberEndpoint {
 
   def fiberInfos() = ZIO.serviceWithZIO[FiberEndpoint](_.fiberInfos())
 
-  def fiberTrace(id: FiberId) =
-    ZIO.serviceWithZIO[FiberEndpoint](_.fiberTrace(id))
+  def fiberInfo(id: Int) =
+    ZIO.serviceWithZIO[FiberEndpoint](_.fiberInfo(id))
 
 }

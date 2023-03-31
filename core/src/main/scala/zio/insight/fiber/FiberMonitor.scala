@@ -16,7 +16,21 @@ class FiberMonitor() extends Supervisor[Unit] {
 
   import FiberMonitor._
 
-  private val entries = new ConcurrentHashMap[FiberId.Runtime, (FiberMapEntry, Option[FiberStatus])]()
+  private val entries = new ConcurrentHashMap[Int, (FiberMapEntry, Option[FiberStatus])]()
+
+  private val getInfo: (FiberMapEntry, Option[FiberStatus]) => ZIO[Any, Nothing, FiberInfo] =
+    (e: FiberMapEntry, s: Option[FiberStatus]) =>
+      (s match {
+        case Some(s) => ZIO.succeed(s)
+        case None    => e.fiber.status.map(FiberStatus.fromZIO)
+      }).map { s =>
+        FiberInfo(
+          e.fiber.id,
+          e.parent.map(_.id),
+          s,
+          Chunk.empty,
+        )
+      }
 
   def allFibers(): Chunk[UIO[FiberInfo]] = {
     val builder = ChunkBuilder.make[UIO[FiberInfo]]()
@@ -24,24 +38,22 @@ class FiberMonitor() extends Supervisor[Unit] {
     entries
       .values()
       .forEach { case (entry: FiberMapEntry, status: Option[FiberStatus]) =>
-        val state = status match {
-          case Some(s) => ZIO.succeed(s)
-          case None    => entry.fiber.status.map(FiberStatus.fromZIO)
-        }
-
-        val info = state
-          .map { s =>
-            FiberInfo(
-              entry.fiber.id,
-              entry.parent.map(_.id),
-              s,
-            )
-          }
-
-        builder += info
+        builder += getInfo(entry, status)
       }
 
     builder.result()
+  }
+
+  def fiberTrace(id: Int): UIO[Option[FiberInfo]] = {
+    val mbEntry = Option(entries.get(id))
+    mbEntry match {
+      case Some((entry, state)) =>
+        entry.fiber.dump
+          .map(_.trace.stackTrace)
+          .zipPar(getInfo(entry, state))
+          .map { case (trace, info) => Some(info.copy(stacktrace = trace)) }
+      case None                 => ZIO.none
+    }
   }
 
   lazy val layer: ZLayer[Any, Nothing, Unit] =
@@ -54,16 +66,21 @@ class FiberMonitor() extends Supervisor[Unit] {
 
   private lazy val cleanUp: ZIO[Any, Nothing, Unit] = {
 
-    def checkEntry(id: FiberId.Runtime, ended: Long, now: Long): Unit = {
-      if (now - ended > 5000) entries.remove(id)
+    def checkEntry(
+      id: Int,
+      ended: Long,
+      now: Long,
+      delay: Long,
+    ): Unit = {
+      if (now - ended > delay) entries.remove(id)
       ()
     }
 
     def doClean(now: Long): Unit =
-      entries.forEach { (id: FiberId.Runtime, entry: (FiberMapEntry, Option[FiberStatus])) =>
+      entries.forEach { (id: Int, entry: (FiberMapEntry, Option[FiberStatus])) =>
         entry._2 match {
-          case Some(FiberStatus.Succeeded(t))  => checkEntry(id, t, now)
-          case Some(FiberStatus.Errored(t, _)) => checkEntry(id, t, now)
+          case Some(FiberStatus.Succeeded(t))  => checkEntry(id, t, now, 5.seconds.toMillis)
+          case Some(FiberStatus.Errored(t, _)) => checkEntry(id, t, now, 10.seconds.toMillis)
           case Some(_)                         => ()
           case None                            => ()
         }
@@ -84,7 +101,7 @@ class FiberMonitor() extends Supervisor[Unit] {
     fiber: Fiber.Runtime[E, A],
   )(implicit unsafe: Unsafe,
   ): Unit = {
-    entries.put(fiber.id, (FiberMapEntry(parent, fiber), None))
+    entries.put(fiber.id.id, (FiberMapEntry(parent, fiber), None))
     ()
   }
 
@@ -99,8 +116,8 @@ class FiberMonitor() extends Supervisor[Unit] {
     value match {
       case Exit.Success(_) =>
         entries.put(
-          fiber.id,
-          (entries.get(fiber.id)._1, Some(FiberStatus.Succeeded(now))),
+          fiber.id.id,
+          (entries.get(fiber.id.id)._1, Some(FiberStatus.Succeeded(now))),
         )
       case Exit.Failure(e) =>
         val hint = e match {
@@ -108,8 +125,8 @@ class FiberMonitor() extends Supervisor[Unit] {
           case _               => e.toString
         }
         entries.put(
-          fiber.id,
-          (entries.get(fiber.id)._1, Some(FiberStatus.Errored(now, hint))),
+          fiber.id.id,
+          (entries.get(fiber.id.id)._1, Some(FiberStatus.Errored(now, hint))),
         )
     }
     ()

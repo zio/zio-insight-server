@@ -15,10 +15,12 @@ package object fiber {
       case (loc, file, line) => Trace(loc, file, line)
     }
 
+  implicit val locationCodec = JsonCodec(locationEnc, locationDec)
+
   implicit val fiberIdCodec: JsonCodec[FiberId.Runtime] = DeriveJsonCodec.gen[FiberId.Runtime]
 
   implicit val fiberStatusCodec: JsonCodec[FiberStatus] = DeriveJsonCodec.gen[FiberStatus]
 
-  implicit val fiberIfoCodec = DeriveJsonCodec.gen[FiberInfo]
+  implicit val fiberInfoCodec = DeriveJsonCodec.gen[FiberInfo]
 
 }

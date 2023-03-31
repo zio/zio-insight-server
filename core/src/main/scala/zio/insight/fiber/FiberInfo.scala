@@ -6,7 +6,7 @@ sealed trait FiberStatus
 
 object FiberStatus {
 
-  final case class Running(trace: Trace)                extends FiberStatus
+  final case class Running(currentLocation: Trace)      extends FiberStatus
   final case class Suspended(
     blockingOn: Set[FiberId.Runtime],
     currentLocation: Trace)
@@ -25,4 +25,5 @@ object FiberStatus {
 final case class FiberInfo(
   id: FiberId.Runtime,
   parent: Option[FiberId.Runtime],
-  status: FiberStatus)
+  status: FiberStatus,
+  stacktrace: Chunk[Trace])
