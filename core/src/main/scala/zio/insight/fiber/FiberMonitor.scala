@@ -58,41 +58,50 @@ class FiberMonitor() extends Supervisor[Unit] {
 
   lazy val layer: ZLayer[Any, Nothing, Unit] =
     ZLayer.fromZIO(
-      cleanUp
+      maintain
         .schedule(Schedule.spaced(5000.millis))
         .forkDaemon
         .unit,
     )
 
-  private lazy val cleanUp: ZIO[Any, Nothing, Unit] = {
+  private lazy val maintain: ZIO[Any, Nothing, Unit] = {
 
-    def checkEntry(
+    def gcEntry(
       id: Int,
       ended: Long,
       now: Long,
       delay: Long,
-    ): Unit = {
-      if (now - ended > delay) entries.remove(id)
-      ()
-    }
+    ): Unit =
+      if (now - ended > delay) {
+        entries.remove(id)
+        ()
+      }
 
-    def doClean(now: Long): Unit =
+    def doClean(now: Long): Int = {
       entries.forEach { (id: Int, entry: (FiberMapEntry, Option[FiberStatus])) =>
         entry._2 match {
-          case Some(FiberStatus.Succeeded(t))  => checkEntry(id, t, now, 5.seconds.toMillis)
-          case Some(FiberStatus.Errored(t, _)) => checkEntry(id, t, now, 10.seconds.toMillis)
+          case Some(FiberStatus.Succeeded(t))  => gcEntry(id, t, now, 5.seconds.toMillis)
+          case Some(FiberStatus.Errored(t, _)) => gcEntry(id, t, now, 10.seconds.toMillis)
           case Some(_)                         => ()
           case None                            => ()
         }
       }
+      entries.size()
+    }
 
     for {
-      now <- ZIO.clockWith(_.currentTime(TimeUnit.MILLISECONDS))
-      _    = doClean(now)
+      now      <- ZIO.clockWith(_.currentTime(TimeUnit.MILLISECONDS))
+      remaining = doClean(now)
+//      _        <- ZIO.logInfo(s"Fibers remaining in monitor: $remaining")
     } yield ()
   }
 
   def value(implicit trace: zio.Trace): UIO[Unit] = ZIO.unit
+
+  private def checkEntry(parent: Option[Fiber.Runtime[_, _]], fiber: Fiber.Runtime[_, _]): Unit = {
+    entries.putIfAbsent(fiber.id.id, (FiberMapEntry(parent, fiber), None))
+    parent.foreach(p => entries.putIfAbsent(p.id.id, (FiberMapEntry(None, p), None)))
+  }
 
   override def onStart[R, E, A](
     environment: ZEnvironment[R],
@@ -100,16 +109,12 @@ class FiberMonitor() extends Supervisor[Unit] {
     parent: Option[Fiber.Runtime[Any, Any]],
     fiber: Fiber.Runtime[E, A],
   )(implicit unsafe: Unsafe,
-  ): Unit = {
-    entries.put(fiber.id.id, (FiberMapEntry(parent, fiber), None))
-    ()
-  }
+  ): Unit = checkEntry(parent, fiber)
 
-  override def onSuspend[E, A](fiber: Fiber.Runtime[E, A])(implicit unsafe: Unsafe): Unit = {}
-
-  override def onEffect[E, A](fiber: Fiber.Runtime[E, A], effect: ZIO[_, _, _])(implicit unsafe: Unsafe): Unit = {}
-
-  override def onResume[E, A](fiber: Fiber.Runtime[E, A])(implicit unsafe: Unsafe): Unit = {}
+  override def onSuspend[E, A](fiber: Fiber.Runtime[E, A])(implicit unsafe: Unsafe): Unit                      = checkEntry(None, fiber)
+  override def onEffect[E, A](fiber: Fiber.Runtime[E, A], effect: ZIO[_, _, _])(implicit unsafe: Unsafe): Unit =
+    checkEntry(None, fiber)
+  override def onResume[E, A](fiber: Fiber.Runtime[E, A])(implicit unsafe: Unsafe): Unit                       = checkEntry(None, fiber)
 
   override def onEnd[R, E, A](value: Exit[E, A], fiber: Fiber.Runtime[E, A])(implicit unsafe: Unsafe): Unit = {
     val now = java.lang.System.currentTimeMillis()

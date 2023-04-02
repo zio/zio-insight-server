@@ -40,9 +40,11 @@ object SampleApp extends ZIOAppDefault {
 
   // Just record something into a histogram
   private lazy val observeNumbers = for {
-    _ <- Random.nextDoubleBetween(0.0d, 120.0d) @@ aspHistogram @@ aspCountAll
-    _ <- Random.nextIntBetween(100, 500) @@ aspSummary @@ aspCountAll
-  } yield ()
+    f1 <- (Random.nextDoubleBetween(0.0d, 120.0d) @@ aspHistogram @@ aspCountAll).forkScoped
+    f2 <- (Random.nextIntBetween(100, 500) @@ aspSummary @@ aspCountAll).forkScoped
+    d1 <- f1.join
+    d2 <- f2.join
+  } yield (d1, d2)
 
   private lazy val doSomething = {
     val t = (for {
@@ -50,7 +52,7 @@ object SampleApp extends ZIOAppDefault {
       _     <- ZIO.sleep((value * 100).millis)
       err   <- ZIO.randomWith(_.nextBoolean)
       _     <- ZIO.fail(new Exception("I dont like this")).when(err)
-    } yield value).tapError(_ => ZIO.logInfo("Something went wrong"))
+    } yield value).tapError(_ => ZIO.unit)
 
     for {
       f <- t.forkScoped
@@ -60,14 +62,15 @@ object SampleApp extends ZIOAppDefault {
 
   // Observe Strings in order to capture unique values
   private lazy val observeKey = for {
-    _ <- Random.nextIntBetween(10, 20).map(v => s"myKey-$v") @@ aspSet @@ aspCountAll
+    _ <- (Random.nextIntBetween(10, 20).map(v => s"myKey-$v") @@ aspSet @@ aspCountAll).forkScoped
   } yield ()
 
   private def program = for {
-    _ <- gaugeSomething.schedule(Schedule.spaced(200.millis).jittered).forkScoped
-    _ <- observeNumbers.schedule(Schedule.spaced(150.millis).jittered).forkScoped
+    _ <- gaugeSomething.schedule(Schedule.spaced(500.millis).jittered).forkScoped
+    _ <- observeNumbers.schedule(Schedule.spaced(400.millis).jittered).forkScoped
     _ <- observeKey.schedule(Schedule.spaced(300.millis).jittered).forkScoped
-    _ <- doSomething.catchAll(_ => ZIO.unit).schedule(Schedule.spaced(100.millis).jittered).forkScoped
+    _ <- doSomething.catchAll(_ => ZIO.unit).schedule(Schedule.spaced(200.millis).jittered).forkScoped
+    _ <- FiberTree.run(3, 4, 2).forever.forkScoped
   } yield ()
 
   private lazy val fiberSupervisor = new FiberMonitor()
