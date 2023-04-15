@@ -42,7 +42,7 @@ object MetricRoutes {
                             .map(_.toJson)
                             .map(data => HttpUtils.noCors(Response.json(data)))
                       }
-        } yield response).orDie // TODO: proper error handling
+        } yield response).catchAll(t => ZIO.succeed(Response.text(t.getMessage).setStatus(Status.BadRequest)))
     }
 
   val routes: Path => Http[InsightPublisher, Nothing, Request, Response] = ctxt =>

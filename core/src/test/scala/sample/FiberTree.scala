@@ -16,7 +16,7 @@ object FiberTree {
                    d <- ZIO.randomWith(_.nextIntBetween(10, 30))
                    f <-
                      ZIO
-                       .randomWith(_.nextIntBetween(0, 10))
+                       .randomWith(_.nextIntBetween(0, 10)).schedule(Schedule.spaced(200.millis))
                        .forever
                        .forkScoped
                    _ <- f.interrupt.delay(d.seconds)

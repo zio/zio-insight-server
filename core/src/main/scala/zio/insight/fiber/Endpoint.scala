@@ -12,18 +12,16 @@ import zio._
  * For each fiber we can also provide a stacktrace on demand.
  */
 trait FiberEndpoint {
-
-  def fiberInfos(): UIO[Chunk[FiberInfo]]
-  def fiberInfo(id: Int): UIO[Option[FiberInfo]]
-
+  def fiberInfos(req: FiberTraceRequest): UIO[Chunk[FiberInfo]]
+  def singleTrace(id: Int): UIO[Option[FiberInfo]]
 }
 
 abstract private[insight] class FiberEndpointImpl(monitor: FiberMonitor) extends FiberEndpoint {
+  def fiberInfos(req: FiberTraceRequest): UIO[Chunk[FiberInfo]] =
+    ZIO.collectAll(monitor.filteredFibers(req))
 
-  def fiberInfos(): UIO[Chunk[FiberInfo]] =
-    ZIO.collectAll(monitor.allFibers())
-
-  def fiberInfo(id: Int): UIO[Option[FiberInfo]] = monitor.fiberTrace(id)
+  def singleTrace(id: Int): UIO[Option[FiberInfo]] =
+    monitor.fiberTrace(id)
 }
 
 object FiberEndpoint {
@@ -33,9 +31,7 @@ object FiberEndpoint {
       ZIO.service[FiberMonitor].map(new FiberEndpointImpl(_) {}),
     )
 
-  def fiberInfos() = ZIO.serviceWithZIO[FiberEndpoint](_.fiberInfos())
-
-  def fiberInfo(id: Int) =
-    ZIO.serviceWithZIO[FiberEndpoint](_.fiberInfo(id))
+  def fiberInfos(req: FiberTraceRequest) = ZIO.serviceWithZIO[FiberEndpoint](_.fiberInfos(req))
+  def singleTrace(id: Int)               = ZIO.serviceWithZIO[FiberEndpoint](_.singleTrace(id))
 
 }

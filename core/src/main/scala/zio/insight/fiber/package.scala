@@ -23,4 +23,6 @@ package object fiber {
 
   implicit val fiberInfoCodec = DeriveJsonCodec.gen[FiberInfo]
 
+  implicit val fiberTraceRequestCodec = DeriveJsonCodec.gen[FiberTraceRequest]
+
 }

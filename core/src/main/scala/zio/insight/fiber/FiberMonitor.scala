@@ -18,27 +18,39 @@ class FiberMonitor() extends Supervisor[Unit] {
 
   private val entries = new ConcurrentHashMap[Int, (FiberMapEntry, Option[FiberStatus])]()
 
-  private val getInfo: (FiberMapEntry, Option[FiberStatus]) => ZIO[Any, Nothing, FiberInfo] =
-    (e: FiberMapEntry, s: Option[FiberStatus]) =>
-      (s match {
-        case Some(s) => ZIO.succeed(s)
-        case None    => e.fiber.status.map(FiberStatus.fromZIO)
-      }).map { s =>
-        FiberInfo(
-          e.fiber.id,
-          e.parent.map(_.id),
-          s,
-          Chunk.empty,
-        )
-      }
+  private def getInfo(
+    entry: FiberMapEntry,
+    status: Option[FiberStatus],
+    req: FiberTraceRequest,
+  ): ZIO[Any, Nothing, FiberInfo] = for {
+    state <- status match {
+               case Some(s) => ZIO.succeed(s)
+               case None    => entry.fiber.status.map(FiberStatus.fromZIO)
+             }
+    trace <- req.traced.contains(entry.fiber.id.id) match {
+               case true  => entry.fiber.dump.map(_.trace.stackTrace)
+               case false => ZIO.succeed(Chunk.empty)
+             }
+  } yield FiberInfo(
+    entry.fiber.id,
+    entry.parent.map(_.id),
+    state,
+    trace,
+  )
 
-  def allFibers(): Chunk[UIO[FiberInfo]] = {
+  def filteredFibers(req: FiberTraceRequest): Chunk[UIO[FiberInfo]] = {
     val builder = ChunkBuilder.make[UIO[FiberInfo]]()
 
     entries
       .values()
       .forEach { case (entry: FiberMapEntry, status: Option[FiberStatus]) =>
-        builder += getInfo(entry, status)
+        val includeActive   = !req.activeOnly || status.isEmpty
+        // only trace the dependencies to the root if the entry is active and a root is set
+        // An unset root means we want all fibers
+        val includeWithRoot = includeActive && req.root.fold(true)(isDescendantOf(entry, _))
+        // If the request has a root, only include fibers that are descendants of the root
+        if (includeWithRoot)
+          builder += getInfo(entry, status, req)
       }
 
     builder.result()
@@ -50,11 +62,24 @@ class FiberMonitor() extends Supervisor[Unit] {
       case Some((entry, state)) =>
         entry.fiber.dump
           .map(_.trace.stackTrace)
-          .zipPar(getInfo(entry, state))
+          .zipPar(getInfo(entry, state, FiberTraceRequest.allFibers))
           .map { case (trace, info) => Some(info.copy(stacktrace = trace)) }
       case None                 => ZIO.none
     }
   }
+
+  private def isDescendantOf(
+    descendant: FiberMapEntry,
+    root: Int,
+  ): Boolean =
+    if (descendant.fiber.id.id == root) true
+    else
+      descendant.parent match {
+        case None    => false
+        case Some(p) =>
+          val entry = entries.get(p.id.id)
+          entry != null && isDescendantOf(entry._1, root)
+      }
 
   lazy val layer: ZLayer[Any, Nothing, Unit] =
     ZLayer.fromZIO(
@@ -92,7 +117,6 @@ class FiberMonitor() extends Supervisor[Unit] {
     for {
       now      <- ZIO.clockWith(_.currentTime(TimeUnit.MILLISECONDS))
       remaining = doClean(now)
-//      _        <- ZIO.logInfo(s"Fibers remaining in monitor: $remaining")
     } yield ()
   }
 

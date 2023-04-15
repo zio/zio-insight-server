@@ -70,7 +70,7 @@ object SampleApp extends ZIOAppDefault {
     _ <- observeNumbers.schedule(Schedule.spaced(400.millis).jittered).forkScoped
     _ <- observeKey.schedule(Schedule.spaced(300.millis).jittered).forkScoped
     _ <- doSomething.catchAll(_ => ZIO.unit).schedule(Schedule.spaced(200.millis).jittered).forkScoped
-    _ <- FiberTree.run(3, 4, 2).forever.forkScoped
+    _ <- FiberTree.run(2, 3, 3).forever.forkScoped
   } yield ()
 
   private lazy val fiberSupervisor = new FiberMonitor()

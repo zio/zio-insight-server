@@ -16,9 +16,31 @@ object FiberRoutes {
     Http.collectZIO[Request] {
       case Method.GET -> p if matchesPath(p, ~~ / "fibers") =>
         ZIO
-          .serviceWithZIO[FiberEndpoint](_.fiberInfos())
+          .serviceWithZIO[FiberEndpoint](_.fiberInfos(FiberTraceRequest.allFibers))
           .map(infos => infos.toJson)
           .map(data => HttpUtils.noCors(Response.json(data)))
+    }
+
+  private val fiberTracesRoute: Path => Http[FiberEndpoint, Nothing, Request, Response] = ctxt =>
+    Http.collectZIO[Request] {
+      case req @ Method.POST -> p if matchesPath(p, ~~ / "fibers") =>
+        (for {
+          body     <- req.body.asString
+          request   = body.fromJson[FiberTraceRequest]
+          response <- request match {
+                        case Left(e)  =>
+                          ZIO
+                            .debug(s"Failed to parse the input: $e")
+                            .as(
+                              Response.text(e).setStatus(Status.BadRequest),
+                            )
+                        case Right(r) =>
+                          ZIO
+                            .serviceWithZIO[FiberEndpoint](_.fiberInfos(r))
+                            .map(infos => infos.toJson)
+                            .map(data => HttpUtils.noCors(Response.json(data)))
+                      }
+        } yield response).catchAll(t => ZIO.succeed(Response.text(t.getMessage).setStatus(Status.BadRequest)))
     }
 
   private val fiberTraceRoute: Path => Http[FiberEndpoint, Nothing, Request, Response] = ctxt =>
@@ -33,7 +55,7 @@ object FiberRoutes {
         id match {
           case Some(id) =>
             ZIO
-              .serviceWithZIO[FiberEndpoint](_.fiberInfo(id))
+              .serviceWithZIO[FiberEndpoint](_.singleTrace(id))
               .map(
                 _.fold(Response.fromHttpError(HttpError.NotFound(s"Fiber with id $id not found")))(t =>
                   HttpUtils.noCors(Response.json(t.toJson)),
@@ -43,5 +65,5 @@ object FiberRoutes {
         }
     }
 
-  val routes = (p: Path) => allFibersRoute(p) ++ fiberTraceRoute(p)
+  val routes = (p: Path) => allFibersRoute(p) ++ fiberTraceRoute(p) ++ fiberTracesRoute(p)
 }
