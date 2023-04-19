@@ -13,10 +13,11 @@ object FiberTree {
                if (maxDepth > 0) run(minChildren, maxChildren, maxDepth - 1)
                else
                  for {
-                   d <- ZIO.randomWith(_.nextIntBetween(10, 30))
+                   d <- ZIO.randomWith(_.nextIntBetween(30, 60))
                    f <-
                      ZIO
-                       .randomWith(_.nextIntBetween(0, 10)).schedule(Schedule.spaced(200.millis))
+                       .randomWith(_.nextIntBetween(0, 10))
+                       .schedule(Schedule.spaced(200.millis))
                        .forever
                        .forkScoped
                    _ <- f.interrupt.delay(d.seconds)
