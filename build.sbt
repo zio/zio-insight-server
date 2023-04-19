@@ -1,5 +1,8 @@
 import BuildHelper._
 
+Global / cancelable           := true
+Global / onChangedBuildSource := ReloadOnSourceChanges
+
 inThisBuild(
   List(
     organization   := "dev.zio",
@@ -35,19 +38,28 @@ lazy val commonSettings = Seq()
 lazy val core = project
   .in(file("core"))
   .settings(
-    Test / run / fork      := true,
+    Test / run / fork := true,
     Test / run / javaOptions += "-Djava.net.preferIPv4Stack=true",
-    Test / run / mainClass := Some("sample.SampleApp"),
-    cancelable             := true,
+    // Test / run / mainClass := Some("sample.SampleApp"),
+    cancelable        := true,
     stdSettings("zio.insight.server.core"),
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio"                    % Version.zio,
-      "dev.zio" %% "zio-json"               % Version.zioJson,
-      "dev.zio" %% "zio-streams"            % Version.zio,
-      "dev.zio" %% "zio-metrics-connectors" % Version.zioMetricsConnectors,
-      "io.d11"  %% "zhttp"                  % Version.zioHttp,
-      "dev.zio" %% "zio-test"               % Version.zio % Test,
-      "dev.zio" %% "zio-test-sbt"           % Version.zio % Test,
+      "com.github.ghostdogpr"       %% "caliban"                % Version.caliban,
+      "com.github.ghostdogpr"       %% "caliban-tapir"          % Version.caliban,
+      "com.softwaremill.sttp.tapir" %% "tapir-core"             % Version.tapir,
+      "com.softwaremill.sttp.tapir" %% "tapir-zio-http-server"  % Version.tapir,
+      "com.softwaremill.sttp.tapir" %% "tapir-json-zio"         % Version.tapir,
+      "dev.zio"                     %% "zio"                    % Version.zio,
+      "dev.zio"                     %% "zio-json"               % Version.zioJson,
+      "dev.zio"                     %% "zio-streams"            % Version.zio,
+      "dev.zio"                     %% "zio-metrics-connectors" % Version.zioMetricsConnectors,
+      "dev.zio"                     %% "zio-http"               % Version.zioHttp,
+      "dev.zio"                     %% "zio-test"               % Version.zio % Test,
+      "dev.zio"                     %% "zio-test-sbt"           % Version.zio % Test,
+    ),
+    excludeDependencies ++= Seq(
+      ExclusionRule("dev.zio", "zio-http"),
+      ExclusionRule("dev.zio", "zio-http-logging"),
     ),
   )
   .settings(buildInfoSettings("zio.insight.server"))
@@ -61,8 +73,8 @@ lazy val docs = project
     moduleName                                 := "zio-insight-server-docs",
     scalacOptions -= "-Yno-imports",
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio"   % Version.zio,
-      "io.d11"  %% "zhttp" % Version.zioHttp,
+      "dev.zio" %% "zio"      % Version.zio,
+      "dev.zio" %% "zio-http" % Version.zioHttp,
     ),
     ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(core),
     ScalaUnidoc / unidoc / target              := (LocalRootProject / baseDirectory).value / "website" / "static" / "api",

@@ -106,7 +106,7 @@ object MetricsMessageSpec extends ZIOSpecDefault {
   // Generate single MetricKeyWithId
   private val genSingleMetricKeyWithId: Gen[Any, MetricKeyWithId] = for {
     key    <- genKey.map(_.asInstanceOf[MetricKey.Untyped])
-    uuid <- Gen.uuid // FIXME: Gen.const(java.util.UUID.nameUUIDFromBytes(key.toString.getBytes))
+    uuid   <- Gen.uuid // FIXME: Gen.const(java.util.UUID.nameUUIDFromBytes(key.toString.getBytes))
     result <- Gen.const(MetricKeyWithId(uuid, key))
   } yield result
 
@@ -125,7 +125,7 @@ object MetricsMessageSpec extends ZIOSpecDefault {
                    case kh if kh.isInstanceOf[MetricKeyType.Histogram] => genStateHistogram
                    case _                                              => throw new RuntimeException("Boom")
                  }
-    uuid <- Gen.uuid // FIXME: Gen.const(java.util.UUID.nameUUIDFromBytes(key.toString.getBytes))
+    uuid      <- Gen.uuid // FIXME: Gen.const(java.util.UUID.nameUUIDFromBytes(key.toString.getBytes))
     timestamp <- genSingleTimestamp
     result    <- Gen.const(InsightMetricState(uuid, key, state, timestamp))
   } yield result
