@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package zio.insight.protocol.common;
+package zio.insight.api.protocol;
 
 enum InsightPlugin { 
   ZIO_INSIGHT = 0;

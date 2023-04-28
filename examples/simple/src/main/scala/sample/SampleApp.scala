@@ -1,14 +1,7 @@
-import java.lang
+package sample
 
 import zio._
-import zio.http._
-import zio.insight.fiber._
-import zio.insight.messages.common._
-import zio.insight.server.InsightServer
 import zio.metrics._
-import zio.metrics.connectors.MetricsConfig
-import zio.metrics.connectors.insight
-import zio.metrics.connectors.insight.InsightPublisher
 import zio.metrics.jvm.DefaultJvmMetrics
 
 object SampleApp extends ZIOAppDefault {
@@ -74,8 +67,6 @@ object SampleApp extends ZIOAppDefault {
     _ <- FiberTree.run(2, 3, 3).forever.forkScoped
   } yield ()
 
-  private lazy val fiberSupervisor = new FiberMonitor()
-
   def byteToHex(b: Byte): String = {
     val digit: Int => Char = Character.forDigit(_, 16)
     new String(Array(digit((b >> 4) & 0xf), digit(b & 0xf)))
@@ -85,35 +76,15 @@ object SampleApp extends ZIOAppDefault {
 
   override def run =
     (for {
-      f  <- ZIO.never.forkScoped
-      amd = ApplicationMetaData.ApplicationMetadata("SampleApp", "1.0.0")
-      im  = InsightMessage
-              .InsightMessage(
-                1,
-                lang.System.currentTimeMillis(),
-              )
-              .withApplicationMetadata(amd)
-      arr = im.toByteArray
-      _  <- ZIO.logInfo(s"$im, ${im.serializedSize}, ${byteToHex(arr)}")
-      _  <- program
-      _  <- Server.serve[InsightPublisher with FiberEndpoint](InsightServer.routes)
-      _  <- Console.printLine("Started Insight Sample application ...")
-      _  <- f.join
+      f <- ZIO.never.forkScoped
+      _ <- program
+      _ <- Console.printLine("Started Insight Sample application ...")
+      _ <- f.join
     } yield ())
       .provideSome[Scope](
-        ZLayer.succeed(ServerConfig.default.port(8080)),
-        Server.live,
-        ZLayer.succeed(MetricsConfig(5.seconds)),
-        insight.metricsLayer,
         Runtime.enableRuntimeMetrics,
         Runtime.enableFiberRoots,
         Runtime.enableOpSupervision,
         DefaultJvmMetrics.live.unit,
-        FiberEndpoint.live,
-        ZLayer.succeed(
-          fiberSupervisor,
-        ),
-        fiberSupervisor.layer,
       )
-      .supervised(fiberSupervisor)
 }

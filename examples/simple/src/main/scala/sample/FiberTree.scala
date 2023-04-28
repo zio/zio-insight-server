@@ -1,3 +1,5 @@
+package sample
+
 import zio._
 
 object FiberTree {

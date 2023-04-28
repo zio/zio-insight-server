@@ -48,7 +48,7 @@ lazy val zioCommonDeps = Seq(
   "dev.zio" %% "zio-test-sbt" % Version.zio % Test,
 )
 
-lazy val api = project
+val api = project
   .in(file("api"))
   .settings(
     commonSettings,
@@ -69,7 +69,7 @@ lazy val api = project
   .settings(buildInfoSettings("zio.insight.server.core"))
   .enablePlugins(BuildInfoPlugin)
 
-lazy val agent = project
+val agent = project
   .in(file("agent"))
   .settings(
     commonSettings,
@@ -78,7 +78,7 @@ lazy val agent = project
   )
   .dependsOn(api)
 
-lazy val redis = project
+val redis = project
   .in(file("redis"))
   .settings(
     commonSettings,
@@ -87,7 +87,7 @@ lazy val redis = project
   )
   .dependsOn(api)
 
-lazy val server = project
+val server = project
   .in(file("server"))
   .settings(
     commonSettings,
@@ -99,7 +99,26 @@ lazy val server = project
   )
   .dependsOn(api, redis)
 
-lazy val docs = project
+// Examples
+
+lazy val exampleSimple = project
+  .in(file("examples/simple"))
+  .settings(
+    commonSettings,
+    stdSettings("zio.insight.examples.simple"),
+    libraryDependencies ++= Seq(
+      "dev.zio" %% "zio-metrics-connectors" % Version.zioMetricsConnectors,
+      "dev.zio" %% "zio-http"               % Version.zioHttp,
+    ) ++
+      zioCommonDeps,
+    excludeDependencies ++= Seq(
+      ExclusionRule("dev.zio", "zio-http"),
+      ExclusionRule("dev.zio", "zio-http-logging"),
+    ),
+  )
+  .dependsOn(api)
+
+val docs = project
   .in(file("genDocs"))
   .settings(
     commonSettings,
@@ -117,7 +136,7 @@ lazy val docs = project
   .dependsOn(server, api, agent, redis)
   .enablePlugins(MdocPlugin, ScalaUnidocPlugin)
 
-lazy val root = project
+val root = project
   .in(file("."))
   .settings(name := "zio-insight-server")
-  .aggregate(server, api, agent, redis, docs)
+  .aggregate(server, api, agent, redis, docs, exampleSimple)
