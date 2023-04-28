@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package zio.insight.messages.common;
+
+message ApplicationMetadata {
+  string name = 1;
+  string version = 2;
+  map<string, string> build_info = 3;
+  map<string, string> instance_info = 4;
+}

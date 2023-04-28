@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package zio.insight.messages.common;
+
+import "ApplicationMetaData.proto";
+
+message InsightMessage {
+  int32 app_id = 1;
+  int64 timestamp = 2;
+  oneof payload {
+    ApplicationMetadata application_metadata = 3;
+  }
+}

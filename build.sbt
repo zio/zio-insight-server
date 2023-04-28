@@ -33,37 +33,71 @@ inThisBuild(
 addCommandAlias("fmt", "all scalafmtSbt scalafmt test:scalafmt")
 addCommandAlias("check", "all scalafmtSbtCheck scalafmtCheck test:scalafmtCheck")
 
-lazy val commonSettings = Seq()
+lazy val commonSettings = Seq(
+  Test / run / fork        := true,
+  Test / run / javaOptions += "-Djava.net.preferIPv4Stack=true",
+  Test / parallelExecution := false,
+  cancelable               := true,
+)
 
-lazy val core = project
-  .in(file("core"))
+lazy val zioCommonDeps = Seq(
+  "dev.zio" %% "zio"          % Version.zio,
+  "dev.zio" %% "zio-json"     % Version.zioJson,
+  "dev.zio" %% "zio-streams"  % Version.zio,
+  "dev.zio" %% "zio-test"     % Version.zio % Test,
+  "dev.zio" %% "zio-test-sbt" % Version.zio % Test,
+)
+
+lazy val api = project
+  .in(file("api"))
   .settings(
-    Test / run / fork := true,
-    Test / run / javaOptions += "-Djava.net.preferIPv4Stack=true",
-    // Test / run / mainClass := Some("sample.SampleApp"),
-    cancelable        := true,
+    commonSettings,
+    Compile / PB.targets := Seq(
+      scalapb.gen(grpc = false) -> (Compile / sourceManaged).value / "scalapb",
+    ),
     stdSettings("zio.insight.server.core"),
     libraryDependencies ++= Seq(
-      "com.github.ghostdogpr"       %% "caliban"                % Version.caliban,
-      "com.github.ghostdogpr"       %% "caliban-tapir"          % Version.caliban,
-      "com.softwaremill.sttp.tapir" %% "tapir-core"             % Version.tapir,
-      "com.softwaremill.sttp.tapir" %% "tapir-zio-http-server"  % Version.tapir,
-      "com.softwaremill.sttp.tapir" %% "tapir-json-zio"         % Version.tapir,
-      "dev.zio"                     %% "zio"                    % Version.zio,
-      "dev.zio"                     %% "zio-json"               % Version.zioJson,
-      "dev.zio"                     %% "zio-streams"            % Version.zio,
-      "dev.zio"                     %% "zio-metrics-connectors" % Version.zioMetricsConnectors,
-      "dev.zio"                     %% "zio-http"               % Version.zioHttp,
-      "dev.zio"                     %% "zio-test"               % Version.zio % Test,
-      "dev.zio"                     %% "zio-test-sbt"           % Version.zio % Test,
-    ),
+      "com.thesamet.scalapb" %% "scalapb-runtime"        % scalapb.compiler.Version.scalapbVersion % "protobuf",
+      "dev.zio"              %% "zio-metrics-connectors" % Version.zioMetricsConnectors,
+      "dev.zio"              %% "zio-http"               % Version.zioHttp,
+    ) ++ zioCommonDeps,
     excludeDependencies ++= Seq(
       ExclusionRule("dev.zio", "zio-http"),
       ExclusionRule("dev.zio", "zio-http-logging"),
     ),
   )
-  .settings(buildInfoSettings("zio.insight.server"))
+  .settings(buildInfoSettings("zio.insight.server.core"))
   .enablePlugins(BuildInfoPlugin)
+
+lazy val agent = project
+  .in(file("agent"))
+  .settings(
+    commonSettings,
+    stdSettings("zio.insight.agent"),
+    libraryDependencies ++= zioCommonDeps,
+  )
+  .dependsOn(api)
+
+lazy val redis = project
+  .in(file("redis"))
+  .settings(
+    commonSettings,
+    stdSettings("zio.insight.redis"),
+    libraryDependencies ++= zioCommonDeps,
+  )
+  .dependsOn(api)
+
+lazy val server = project
+  .in(file("server"))
+  .settings(
+    commonSettings,
+    stdSettings("zio.insight.server"),
+    libraryDependencies ++= Seq(
+      "dev.zio" %% "zio"      % Version.zio,
+      "dev.zio" %% "zio-http" % Version.zioHttp,
+    ),
+  )
+  .dependsOn(api, redis)
 
 lazy val docs = project
   .in(file("genDocs"))
@@ -76,14 +110,14 @@ lazy val docs = project
       "dev.zio" %% "zio"      % Version.zio,
       "dev.zio" %% "zio-http" % Version.zioHttp,
     ),
-    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(core),
+    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(api, agent, server),
     ScalaUnidoc / unidoc / target              := (LocalRootProject / baseDirectory).value / "website" / "static" / "api",
     cleanFiles += (ScalaUnidoc / unidoc / target).value,
   )
-  .dependsOn(core)
+  .dependsOn(server, api, agent, redis)
   .enablePlugins(MdocPlugin, ScalaUnidocPlugin)
 
 lazy val root = project
   .in(file("."))
   .settings(name := "zio-insight-server")
-  .aggregate(core, docs)
+  .aggregate(server, api, agent, redis, docs)

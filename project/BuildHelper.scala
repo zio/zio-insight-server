@@ -102,6 +102,5 @@ object BuildHelper {
           Seq()
       },
       incOptions ~= (_.withLogRecompileOnMacro(false)),
-      Test / parallelExecution := false,
     )
 }
