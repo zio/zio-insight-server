@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package zio.insight.agent.protocol;
+
+message ApplicationStarted {
+  string name = 1;
+  string version = 2;
+}

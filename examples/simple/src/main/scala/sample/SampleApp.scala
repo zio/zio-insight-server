@@ -1,6 +1,8 @@
 package sample
 
 import zio._
+import zio.insight.agent.InsightAgent
+import zio.insight.plugins.agent.InsightAgentPlugin
 import zio.metrics._
 import zio.metrics.jvm.DefaultJvmMetrics
 
@@ -67,18 +69,19 @@ object SampleApp extends ZIOAppDefault {
     _ <- FiberTree.run(2, 3, 3).forever.forkScoped
   } yield ()
 
-  def byteToHex(b: Byte): String = {
-    val digit: Int => Char = Character.forDigit(_, 16)
-    new String(Array(digit((b >> 4) & 0xf), digit(b & 0xf)))
-  }
-
-  def byteToHex(arr: Array[Byte]): String = arr.map(byteToHex).mkString(" ")
+  def printEvents = for {
+    agent  <- ZIO.service[InsightAgent]
+    events <- agent.subscribe()
+    _      <-
+      events.runForeach(msg => ZIO.logInfo(s"Received message: $msg"))
+  } yield ()
 
   override def run =
     (for {
       f <- ZIO.never.forkScoped
       _ <- program
       _ <- Console.printLine("Started Insight Sample application ...")
+      _ <- printEvents.forkScoped
       _ <- f.join
     } yield ())
       .provideSome[Scope](
@@ -86,5 +89,7 @@ object SampleApp extends ZIOAppDefault {
         Runtime.enableFiberRoots,
         Runtime.enableOpSupervision,
         DefaultJvmMetrics.live.unit,
+        InsightAgent.live,
+        InsightAgentPlugin.live.unit,
       )
 }

@@ -1,20 +1,18 @@
 package zio.insight.api
 
-import zio.Chunk
+import zio._
 
 trait InsightPlugin {
-  type Cmd
-  type Msg
+  type Message
 
   def pluginId: Int
-  def pluginTag: String
 
-  def commandNames: Chunk[String] = Chunk.empty
-  def messageNames: Chunk[String] = Chunk.empty
+  def messageNames = Chunk.empty[String]
+  def msgTag(msg: Message): String
 
-  def decodeCommand(cmd: Chunk[Byte]): Either[InsightError, Cmd]
-  def encodeCommand(cmd: Cmd): Chunk[Byte]
+  def encoder: InsightEncoder[Message]
+  def decoder: InsightDecoder[Message]
 
-  def decodeMessage(msg: Chunk[Byte]): Either[InsightError, Msg]
-  def encodeMessage(msg: Msg): Chunk[Byte]
+  def send(msg: Message): ZIO[Any, InsightError, Unit]
+  def handle(msg: Message): ZIO[Any, InsightError, Unit]
 }

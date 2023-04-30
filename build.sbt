@@ -48,18 +48,24 @@ lazy val zioCommonDeps = Seq(
   "dev.zio" %% "zio-test-sbt" % Version.zio % Test,
 )
 
+val protobufSettings = Seq(
+  Compile / PB.targets := Seq(
+    scalapb.gen(grpc = false) -> (Compile / sourceManaged).value / "scalapb",
+  ),
+  libraryDependencies ++= Seq(
+    "com.thesamet.scalapb" %% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf",
+  ),
+)
+
 val api = project
   .in(file("api"))
   .settings(
     commonSettings,
-    Compile / PB.targets := Seq(
-      scalapb.gen(grpc = false) -> (Compile / sourceManaged).value / "scalapb",
-    ),
     stdSettings("zio.insight.server.core"),
+    protobufSettings,
     libraryDependencies ++= Seq(
-      "com.thesamet.scalapb" %% "scalapb-runtime"        % scalapb.compiler.Version.scalapbVersion % "protobuf",
-      "dev.zio"              %% "zio-metrics-connectors" % Version.zioMetricsConnectors,
-      "dev.zio"              %% "zio-http"               % Version.zioHttp,
+      "dev.zio" %% "zio-metrics-connectors" % Version.zioMetricsConnectors,
+      "dev.zio" %% "zio-http"               % Version.zioHttp,
     ) ++ zioCommonDeps,
     excludeDependencies ++= Seq(
       ExclusionRule("dev.zio", "zio-http"),
@@ -73,6 +79,7 @@ val agent = project
   .in(file("agent"))
   .settings(
     commonSettings,
+    protobufSettings,
     stdSettings("zio.insight.agent"),
     libraryDependencies ++= zioCommonDeps,
   )
@@ -116,7 +123,7 @@ lazy val exampleSimple = project
       ExclusionRule("dev.zio", "zio-http-logging"),
     ),
   )
-  .dependsOn(api)
+  .dependsOn(api, agent)
 
 val docs = project
   .in(file("genDocs"))
