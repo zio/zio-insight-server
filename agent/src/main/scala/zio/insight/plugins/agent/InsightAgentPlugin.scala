@@ -6,15 +6,16 @@ import zio.insight.api._
 
 object InsightAgentPlugin {
 
-  val pluginId  = 0;
-  val pluginTag = "AGT"
+  import InsightPlugin.MsgTag
+
+  val pluginId = 0;
 
   sealed abstract private[agent] class InsightAgentPluginImpl(
     agent: InsightAgent)
       extends InsightPlugin { self: InsightPlugin =>
     override type Message = InsightAgentMessage
 
-    override def messageNames: Chunk[String] = Chunk(
+    override def msgTags: Chunk[MsgTag] = Chunk(
       InsightAgentMessage.ApplicationStarted.msgTag,
     )
 

@@ -1,10 +1,10 @@
 package zio.insight.plugins.agent
 
 import zio.insight.agent.protocol.AgentMessages.{ApplicationStarted => ApplicationStartedProto}
+import zio.insight.api.InsightPlugin.MsgTag
 
 sealed trait InsightAgentMessage {
-  def msgId: Int
-  def msgTag: String
+  def msgTag: MsgTag
 }
 
 object InsightAgentMessage {
@@ -13,13 +13,11 @@ object InsightAgentMessage {
     name: String,
     version: String)
       extends InsightAgentMessage {
-    override val msgId          = ApplicationStarted.msgId
     override val msgTag: String = ApplicationStarted.msgTag
   }
 
   object ApplicationStarted {
-    val msgTag = "Started"
-    val msgId  = 0
+    val msgTag: MsgTag = "Started"
   }
 
   implicit class InsightAgentMessageOps(val self: InsightAgentMessage) extends AnyVal {
